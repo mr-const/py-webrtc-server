@@ -17,18 +17,26 @@ var PeerManager = (function () {
       },
       peerDatabase = {},
       localStream,
-      remoteVideoContainer = document.getElementById('remoteVideosContainer'),
-      socket = io();
-      
-  socket.on('message', handleMessage);
-  socket.on('welcome', function(data) {
-    json = JSON.parse(data);
-    localId = json.id;
-    config.peerConnectionConfig.iceServers = json.ice_servers.map(function(x) { return {"url": x}; });
+      remoteVideoContainer = document.getElementById('remoteVideosContainer')
 
-    console.log("Connected. ID: " + localId);
-    console.log("iceServers: " + JSON.stringify(config.peerConnectionConfig.iceServers));
-  });
+    var socket = new WebSocket("ws://127.0.0.1:8080/socket.io/");
+    console.log(socket);
+
+    socket.onopen = function(openEvent) {
+        console.log(openEvent);
+        socket.send("ehlo");
+    };
+    socket.onmessage = function(msg) {
+        console.log(msg);
+        json = JSON.parse(msg.data);
+        if (json.hasOwnProperty('welcome')) {
+            handleWelcome(json.welcome)
+        }
+        else if (json.hasOwnProperty('message')) {
+            handleMessage(json.message)
+        }
+    };
+
 
   function addPeer(remoteId) {
     var peer = new Peer(config.peerConnectionConfig, config.peerConnectionConstraints);
@@ -83,8 +91,15 @@ var PeerManager = (function () {
       error
     );
   }
-  function handleMessage(jsonMessage) {
-    var message = JSON.parse(jsonMessage);
+
+    function handleWelcome(welcome) {
+        localId = welcome.id;
+        config.peerConnectionConfig.iceServers = welcome.ice_servers.map(function(x) { return {"url": x}; });
+
+        console.log("Connected. ID: " + localId);
+        console.log("iceServers: " + JSON.stringify(config.peerConnectionConfig.iceServers));
+    }
+  function handleMessage(message) {
     var type = message.type,
         from = message.from,
         pc = (peerDatabase[from] || addPeer(from)).pc;
