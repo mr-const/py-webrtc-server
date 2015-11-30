@@ -1,7 +1,6 @@
 import asyncio, jinja2, aiohttp_jinja2
 import json
 import logging
-import os
 import random
 import string
 
