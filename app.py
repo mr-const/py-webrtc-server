@@ -46,6 +46,10 @@ def welcomeCallback(websocket, envelope):
 
 
 def handle_message(websocket, client, data):
+    pass
+
+
+def send_welcome(ws, client):
     welcomeMessage = {
       "id": client.id,
       "ice_servers": iceServers
@@ -55,8 +59,7 @@ def handle_message(websocket, client, data):
         'welcome': welcomeMessage
     }
 
-    if data == "ehlo":
-        welcomeCallback(websocket, envelope)
+    welcomeCallback(ws, envelope)
 
 
 async def wshandler(request):
@@ -67,6 +70,8 @@ async def wshandler(request):
     g_clients[clientId] = Client(clientId)
 
     print("new client inbound: " + clientId)
+
+    send_welcome(ws, g_clients[clientId])
 
     async for msg in ws:
         if msg.tp == web.MsgType.text:

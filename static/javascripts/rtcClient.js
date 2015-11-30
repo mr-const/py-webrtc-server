@@ -24,7 +24,6 @@ var PeerManager = (function () {
 
     socket.onopen = function(openEvent) {
         console.log(openEvent);
-        socket.send("ehlo");
     };
     socket.onmessage = function(msg) {
         console.log(msg);
