@@ -148,7 +148,7 @@
 				camera.start()
 				.then(function(result) {
 					localStream.link = $window.location.host + '/' + client.getId();
-					client.send('register_client', JSON.stringify({ name: localStream.name }));
+					client.send('register_client', { name: localStream.name });
 				})
 				.catch(function(err) {
 					console.log(err);

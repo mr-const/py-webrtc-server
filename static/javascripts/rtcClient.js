@@ -35,7 +35,7 @@ var PeerManager = (function () {
     socket.onopen = function(openEvent) {
         console.log(openEvent);
         socket.onmessage = onMessage;
-        socket.send("ehlo");
+        socket.send(JSON.stringify({type: "ehlo"}));
     };
 
 

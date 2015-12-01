@@ -6,16 +6,14 @@ import string
 
 from aiohttp import web
 
+from stream import Stream
+from streamlist import StreamList
+
 log = logging.getLogger(__name__)
 
-
-async def handle(request):
-    name = request.match_info.get('name', "Anonymous")
-    text = "Hello, " + name
-    return web.Response(body=text.encode('utf-8'))
-
-
 g_clients = {}
+
+g_streams = StreamList()
 
 iceServers = [
   "stun://stun.l.google.com:19302",
@@ -57,11 +55,31 @@ def send_welcome(ws, client):
     welcome_callback(ws, envelope)
 
 
+def register_client(data, client):
+    name = data["data"]["name"]
+    print('-- ' + client.id + ' registered with name: ' + name + ' --')
+    g_streams.add_stream(client.id, Stream(client.id, name))
+
+
+def leave_client(client):
+    print('-- ' + client.id + ' left --')
+    g_streams.remove_stream(client.id)
+
+
 def handle_message(websocket, client, data):
-    if data == "ehlo":
+    packet = json.loads(data)
+    if packet['type'] == "ehlo":
         send_welcome(websocket, client)
+    elif packet['type'] == "register_client":
+        register_client(packet, client)
+    elif packet['type'] == "leave":
+        leave_client(client)
     else:
         print("unknown message: " + data)
+
+async def list_streams(request):
+    return web.Response(body=g_streams.to_json().encode("utf-8"), content_type="application/json")
+
 
 async def wshandler(request):
     ws = web.WebSocketResponse()
@@ -92,17 +110,12 @@ async def index(request):
     return aiohttp_jinja2.render_template('index.html', request,
                                           {'header': 'hello world', 'footer': '(c) Troy Rynok LLC'})
 
-async def streams(request):
-    return web.Response(body=json.dumps(list(g_clients.keys())).encode("utf-8"), content_type="application/json")
-
-
 async def init(loop):
     app = web.Application(loop=loop)
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('./templates/'))
     app.router.add_static('/static', './static')
     app.router.add_route('GET', '/socket.io/', wshandler)
-    app.router.add_route('GET', '/streams/', streams)
-    app.router.add_route('GET', '/{name}', handle)
+    app.router.add_route('GET', '/streams/', list_streams)
     app.router.add_route('GET', '/', index)
 
     srv = await loop.create_server(app.make_handler(),
