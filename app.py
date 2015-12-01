@@ -60,6 +60,8 @@ def send_welcome(ws, client):
 def handle_message(websocket, client, data):
     if data == "ehlo":
         send_welcome(websocket, client)
+    else:
+        print("unknown message: " + data)
 
 async def wshandler(request):
     ws = web.WebSocketResponse()

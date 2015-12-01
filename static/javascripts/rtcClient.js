@@ -133,11 +133,13 @@ var PeerManager = (function () {
   function send(type, to, payload) {
     console.log('sending ' + type + ' to ' + to);
 
-    socket.emit('message', JSON.stringify({
-      to: to,
-      type: type,
-      payload: payload
-    }));
+    socket.send(JSON.stringify({
+        'type': 'message',
+        data: {
+          to: to,
+          type: type,
+          payload: payload
+    }}));
   }
   function toggleLocalStream(pc) {
     if(localStream) {
@@ -215,7 +217,10 @@ var PeerManager = (function () {
     },
 
     send: function(type, payload) {
-      socket.emit(type, payload);
+        socket.send(JSON.stringify({
+            'type': type,
+            data: payload
+        }))
     }
   };
   
