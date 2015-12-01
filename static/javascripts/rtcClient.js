@@ -20,12 +20,8 @@ var PeerManager = (function () {
       remoteVideoContainer = document.getElementById('remoteVideosContainer')
 
     var socket = new WebSocket("ws://127.0.0.1:8080/socket.io/");
-    console.log(socket);
 
-    socket.onopen = function(openEvent) {
-        console.log(openEvent);
-    };
-    socket.onmessage = function(msg) {
+    function onMessage(msg) {
         console.log(msg);
         json = JSON.parse(msg.data);
         if (json.hasOwnProperty('welcome')) {
@@ -34,6 +30,12 @@ var PeerManager = (function () {
         else if (json.hasOwnProperty('message')) {
             handleMessage(json.message)
         }
+    };
+
+    socket.onopen = function(openEvent) {
+        console.log(openEvent);
+        socket.onmessage = onMessage;
+        socket.send("ehlo");
     };
 
 

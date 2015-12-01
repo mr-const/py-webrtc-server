@@ -37,15 +37,11 @@ class Client(object):
         self.id = id
 
 
-def welcomeCallback(websocket, envelope):
+def welcome_callback(websocket, envelope):
     try:
         websocket.send_str(json.dumps(envelope))
     except Exception as ex:
         print("Failed to send welcome packet: " + repr(ex))
-
-
-def handle_message(websocket, client, data):
-    pass
 
 
 def send_welcome(ws, client):
@@ -58,32 +54,35 @@ def send_welcome(ws, client):
         'welcome': welcomeMessage
     }
 
-    welcomeCallback(ws, envelope)
+    welcome_callback(ws, envelope)
 
+
+def handle_message(websocket, client, data):
+    if data == "ehlo":
+        send_welcome(websocket, client)
 
 async def wshandler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
-    clientId = id_generator(12)
-    g_clients[clientId] = Client(clientId)
+    client_id = id_generator(12)
+    g_clients[client_id] = Client(client_id)
 
-    print("new client inbound: " + clientId)
-
-    send_welcome(ws, g_clients[clientId])
+    print("new client inbound: " + client_id)
 
     async for msg in ws:
         if msg.tp == web.MsgType.text:
-            handle_message(ws, g_clients[clientId], msg.data)
+            handle_message(ws, g_clients[client_id], msg.data)
         elif msg.tp == web.MsgType.binary:
             ws.send_bytes(msg.data)
-        elif msg.tp == web.MsgType.close:
-            print("Client disconnected: " + clientId)
         elif msg.tp == web.MsgType.error:
             print('ws connection closed with exception %s' %
                   ws.exception())
         else:
-            print("Unknown message <" + msg.tp + "> for client: " + clientId)
+            print("Unknown message <" + msg.tp + "> for client: " + client_id)
+
+    print("Connection closed, removing client " + client_id)
+    del g_clients[client_id]
 
     return ws
 
