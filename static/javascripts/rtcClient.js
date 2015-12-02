@@ -19,7 +19,7 @@ var PeerManager = (function () {
       localStream,
       remoteVideoContainer = document.getElementById('remoteVideosContainer')
 
-    var socket = new WebSocket("ws://127.0.0.1:8080/socket.io/");
+    var socket = new WebSocket("ws://" + ws_url + "/socket.io/");
 
     function onMessage(msg) {
         console.log(msg);
@@ -27,14 +27,21 @@ var PeerManager = (function () {
         if (json.hasOwnProperty('welcome')) {
             handleWelcome(json.welcome)
         }
-        else if (json.hasOwnProperty('message')) {
-            handleMessage(json.message)
+        else if (json.hasOwnProperty('type')) {
+          if (json.type == 'message')
+            handleMessage(json.data)
         }
     };
+
+    function onEvent(event) {
+      console.log(event);
+    }
 
     socket.onopen = function(openEvent) {
         console.log(openEvent);
         socket.onmessage = onMessage;
+        socket.onerror = onEvent;
+        socket.onclose = onEvent;
         socket.send(JSON.stringify({type: "ehlo"}));
     };
 

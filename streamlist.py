@@ -5,12 +5,8 @@ class StreamList(object):
         self.streams[stream_id] = stream
 
     def remove_stream(self, stream_id):
-        del self.streams[stream_id]
+        if stream_id in self.streams:
+            del self.streams[stream_id]
 
     def to_json(self):
-        js = "["
-        for key, value in self.streams.items():
-            js += value.to_json() + ","
-        js += "]"
-        return js
-
+        return "["+",".join(y.to_json() for x, y in self.streams.items())+"]"

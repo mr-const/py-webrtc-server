@@ -6,8 +6,12 @@ import string
 
 from aiohttp import web
 
+from client import Client
 from stream import Stream
 from streamlist import StreamList
+
+BIND_HOST = "10.1.1.162"
+BIND_PORT = 3333
 
 log = logging.getLogger(__name__)
 
@@ -26,13 +30,6 @@ iceServers = [
 
 def id_generator(size=12, chars=string.ascii_lowercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
-
-
-class Client(object):
-    id = ""
-
-    def __init__(self, id):
-        self.id = id
 
 
 def welcome_callback(websocket, envelope):
@@ -66,7 +63,24 @@ def leave_client(client):
     g_streams.remove_stream(client.id)
 
 
-def handle_message(websocket, client, data):
+def process_message(data, client):
+    dst_id = data['data']['to']
+    if dst_id == client.id:
+        print("-- Attempt to send message to yourself. Ignoring")
+        return
+
+    dst_client = g_clients.get(dst_id)
+    if dst_client is None:
+        print("Destination client: " + dst_id + " not found. Ignoring")
+        return
+
+    # Setting from: field
+    data['data']['from'] = client.id
+    print("-- Sending message from: " + client.id + " to: " + dst_client.id)
+    dst_client.ws.send_str(json.dumps(data))
+
+
+def handle_incoming_packet(websocket, client, data):
     packet = json.loads(data)
     if packet['type'] == "ehlo":
         send_welcome(websocket, client)
@@ -74,6 +88,8 @@ def handle_message(websocket, client, data):
         register_client(packet, client)
     elif packet['type'] == "leave":
         leave_client(client)
+    elif packet['type'] == "message":
+        process_message(packet, client)
     else:
         print("unknown message: " + data)
 
@@ -86,13 +102,13 @@ async def wshandler(request):
     await ws.prepare(request)
 
     client_id = id_generator(12)
-    g_clients[client_id] = Client(client_id)
+    g_clients[client_id] = Client(client_id, ws)
 
     print("new client inbound: " + client_id)
 
     async for msg in ws:
         if msg.tp == web.MsgType.text:
-            handle_message(ws, g_clients[client_id], msg.data)
+            handle_incoming_packet(ws, g_clients[client_id], msg.data)
         elif msg.tp == web.MsgType.binary:
             ws.send_bytes(msg.data)
         elif msg.tp == web.MsgType.error:
@@ -103,12 +119,15 @@ async def wshandler(request):
 
     print("Connection closed, removing client " + client_id)
     del g_clients[client_id]
+    g_streams.remove_stream(client_id)
 
     return ws
 
 async def index(request):
     return aiohttp_jinja2.render_template('index.html', request,
-                                          {'header': 'hello world', 'footer': '(c) Troy Rynok LLC'})
+                                          {'header': 'hello world',
+                                           'footer': '(c) Troy Rynok LLC',
+                                           'ws_url': BIND_HOST + ':' + str(BIND_PORT)})
 
 async def init(loop):
     app = web.Application(loop=loop)
@@ -119,8 +138,8 @@ async def init(loop):
     app.router.add_route('GET', '/', index)
 
     srv = await loop.create_server(app.make_handler(),
-                                   '127.0.0.1', 8080)
-    print("Server started at http://127.0.0.1:8080")
+                                   BIND_HOST, BIND_PORT)
+    print("Server started at http://"+BIND_HOST+":"+str(BIND_PORT))
     return srv
 
 
