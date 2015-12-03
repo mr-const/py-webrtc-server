@@ -46,7 +46,8 @@ def send_welcome(ws, client):
     }
 
     envelope = {
-        'welcome': welcomeMessage
+        'type': 'welcome',
+        'data': welcomeMessage
     }
 
     welcome_callback(ws, envelope)

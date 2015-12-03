@@ -23,15 +23,15 @@ var PeerManager = (function () {
 
     function onMessage(msg) {
         console.log(msg);
-        json = JSON.parse(msg.data);
-        if (json.hasOwnProperty('welcome')) {
-            handleWelcome(json.welcome)
-        }
-        else if (json.hasOwnProperty('type')) {
+        json = JSON.parse(msg.data)
+        if (json.hasOwnProperty('type')) {
           if (json.type == 'message')
             handleMessage(json.data)
+          else if (json.type == 'welcome') {
+            handleWelcome(json.data)
+          }
         }
-    };
+    }
 
     function onEvent(event) {
       console.log(event);
