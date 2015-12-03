@@ -1,31 +1,70 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="rtcApp">
+<html lang="en" ng-app="myApp">
 <head>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+
     <title>WebRTC Unlimited</title>
     <base href="/" />
-    <link rel='stylesheet' href='/static/stylesheets/style.css' />
+
 	<script type="text/javascript">
 		var ws_url="{{ ws_url }}";
 	</script>
-	<script type="text/javascript" src="static/javascripts/adapter.js"></script>
-	<script type="text/javascript" src="static/javascripts/rtcClient.js"></script>
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
+
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0-beta.2/angular.min.js"></script>
+    <script type="text/javascript" src="static/javascripts/PeerManager.js"></script>
     <script type="text/javascript" src="static/javascripts/app.js"></script>
+    <script type="text/javascript" src="static/javascripts/adapter.js"></script>
+    <script type="text/javascript" src="static/javascripts/ClientManager.js"></script>
+    <script type="text/javascript" src="static/javascripts/controllers/RobotListController.js"></script>
+    <script type="text/javascript" src="static/javascripts/controllers/RobotController.js"></script>
+    <script type="text/javascript" src="static/javascripts/CameraManager.js"></script>
+    <script type="text/javascript" src="static/javascripts/controllers/LocalStreamController.js"></script>
+
 </head>
+
 <body>
-  	<h1>WebRTC Dashboard</h1>
-  	<div class="localStream" ng-controller="LocalStreamController as localStream">
-	<p>Username: <input ng-model="localStream.name"/></p>
-	<video id="localVideo" muted="muted" autoplay="true"></video>
-	<li ng-click="localStream.toggleCam()">
-		<a href>{{ "{{ localStream.cameraIsOn ? 'Stop' : 'Start' }}" }}</a>
-	</li>
-	<div ng-show="localStream.cameraIsOn">
-		<p>Share this link:</p>
-		<a>{{ '{{ localStream.link }}' }}</a>
-	</div>
-</div>
-  	{% include 'remote-streams.html' %}
-  	<p class="footer">(c) 2015 Troy Rynok LLC</p>
+  <div class="container" ng-controller="RobotListController">
+    <h1>Robots list</h1>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Id</th>
+          <th>Name</th>
+          <th>Connect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="robot in robotList">
+          <td>{{ '{{robot.id}}' }}</td>
+          <td>{{ '{{robot.name}}' }}</td>
+          <td><button class="btn btn-primary" ng-click="view(robot)">View</button></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="container" id="remoteVideosContainer"></div>
+
+  <div class="container" ng-controller="LocalStreamController">
+    <h1>Local stream</h1>
+    <video id="localVideo" muted="muted" autoplay="true"></video>
+    <br>
+    <button class="btn btn-primary" ng-click="registerClient()">Enable camera</button>
+  </div>
+
+  <div class="container" ng-controller="RobotController">
+    <h1>Robot control</h1>
+    <img src="static/images/Arrow_Up.png" ng-click="robotSendUp()"></img>
+    <img src="static/images/Arrow_Left.png" ng-click="robotSendLeft()"></img>
+    <img src="static/images/Arrow_Right.png" ng-click="robotSendRight()"></img>
+    <img src="static/images/Arrow_Down.png" ng-click="robotSendDown()"></img>
+  </div>
 </body>
+
 </html>

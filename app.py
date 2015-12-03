@@ -10,7 +10,7 @@ from client import Client
 from stream import Stream
 from streamlist import StreamList
 
-BIND_HOST = "10.1.1.162"
+BIND_HOST = "10.1.1.225"
 BIND_PORT = 3333
 
 log = logging.getLogger(__name__)
@@ -132,7 +132,7 @@ async def index(request):
 async def init(loop):
     app = web.Application(loop=loop)
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('./templates/'))
-    app.router.add_static('/static', './static')
+    app.router.add_static('/static/', './static/')
     app.router.add_route('GET', '/socket.io/', wshandler)
     app.router.add_route('GET', '/streams/', list_streams)
     app.router.add_route('GET', '/', index)
