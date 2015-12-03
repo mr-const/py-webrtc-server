@@ -46,7 +46,8 @@ def send_welcome(ws, client):
     }
 
     envelope = {
-        'welcome': welcomeMessage
+        'type': 'welcome',
+        'data': welcomeMessage
     }
 
     welcome_callback(ws, envelope)
@@ -76,12 +77,18 @@ def process_message(data, client):
 
     # Setting from: field
     data['data']['from'] = client.id
+    json_txt = json.dumps(data)
     print("-- Sending message from: " + client.id + " to: " + dst_client.id)
-    dst_client.ws.send_str(json.dumps(data))
+    print(json_txt)
+    dst_client.ws.send_str(json_txt)
 
 
 def handle_incoming_packet(websocket, client, data):
     packet = json.loads(data)
+    if packet.get('type') is None:
+        print("unknown message: " + data)
+        return
+
     if packet['type'] == "ehlo":
         send_welcome(websocket, client)
     elif packet['type'] == "register_client":
