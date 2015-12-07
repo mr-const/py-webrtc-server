@@ -23,6 +23,7 @@ var PeerManager = (function () {
       // connected peers
       peerDatabase = {},
       localStream,
+      lastRemote,
       remoteVideosContainer = document.getElementById('remoteVideosContainer');
 
   function mediaConstraints() {
@@ -162,6 +163,7 @@ var PeerManager = (function () {
     };
 
     peerDatabase[remoteId] = peer;
+    lastRemote = remoteId;
 
     return peer;
   }
@@ -268,6 +270,11 @@ var PeerManager = (function () {
     },
 
     SendControlMessage: function (remoteId, message) {
+      // for debug
+      if (remoteId == 0) {
+        remoteId = lastRemote;
+      }
+
       if (!peerDatabase[remoteId]) {
         createPeer(remoteId);
       }
