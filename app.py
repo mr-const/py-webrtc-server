@@ -124,7 +124,7 @@ def wshandler(request):
             print('ws connection closed with exception %s' %
                   ws.exception())
         else:
-            print("Unknown message <" + msg.tp + "> for client: " + client_id)
+            print("Unknown message <" + str(msg.tp) + "> for client: " + client_id)
 
     print("Connection closed, removing client " + client_id)
     del g_clients[client_id]
