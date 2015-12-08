@@ -98,20 +98,24 @@ def handle_incoming_packet(websocket, client, data):
     else:
         print("unknown message: " + data)
 
-async def list_streams(request):
+
+@asyncio.coroutine
+def list_streams(request):
     return web.Response(body=g_streams.to_json().encode("utf-8"), content_type="application/json")
 
 
-async def wshandler(request):
+@asyncio.coroutine
+def wshandler(request):
     ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    yield from ws.prepare(request)
 
     client_id = id_generator(12)
     g_clients[client_id] = Client(client_id, ws)
 
     print("new client inbound: " + client_id)
 
-    async for msg in ws:
+    while True:
+        msg = yield from ws.receive()
         if msg.tp == web.MsgType.text:
             handle_incoming_packet(ws, g_clients[client_id], msg.data)
         elif msg.tp == web.MsgType.binary:
@@ -128,13 +132,17 @@ async def wshandler(request):
 
     return ws
 
-async def index(request):
+
+@asyncio.coroutine
+def index(request):
     return aiohttp_jinja2.render_template('index.html', request,
                                           {'header': 'hello world',
                                            'footer': '(c) Troy Rynok LLC',
                                            'ws_url': settings.BIND_HOST + ':' + str(settings.BIND_PORT)})
 
-async def init(loop):
+
+@asyncio.coroutine
+def init(loop):
     app = web.Application(loop=loop)
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('./templates/'))
     app.router.add_static('/static', './static')
@@ -142,7 +150,7 @@ async def init(loop):
     app.router.add_route('GET', '/streams/', list_streams)
     app.router.add_route('GET', '/', index)
 
-    srv = await loop.create_server(app.make_handler(),
+    srv = yield from loop.create_server(app.make_handler(),
                                    settings.BIND_HOST, settings.BIND_PORT)
     print("Server started at http://"+settings.BIND_HOST+":"+str(settings.BIND_PORT))
     return srv
