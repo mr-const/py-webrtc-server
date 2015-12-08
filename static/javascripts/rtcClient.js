@@ -19,7 +19,7 @@ var PeerManager = (function () {
       localStream,
       remoteVideoContainer = document.getElementById('remoteVideosContainer')
 
-    var socket = new WebSocket("ws://" + ws_url + "/socket.io/");
+    var socket = new WebSocket("ws://" + ws_url + "/rtc/");
 
     function onMessage(msg) {
         console.log(msg);

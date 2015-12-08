@@ -138,7 +138,7 @@ async def init(loop):
     app = web.Application(loop=loop)
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('./templates/'))
     app.router.add_static('/static', './static')
-    app.router.add_route('GET', '/socket.io/', wshandler)
+    app.router.add_route('GET', '/rtc/', wshandler)
     app.router.add_route('GET', '/streams/', list_streams)
     app.router.add_route('GET', '/', index)
 
