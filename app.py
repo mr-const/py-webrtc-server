@@ -123,6 +123,9 @@ def wshandler(request):
         elif msg.tp == web.MsgType.error:
             print('ws connection closed with exception %s' %
                   ws.exception())
+        elif msg.tp == web.MsgType.closed:
+            print('received close message')
+            break
         else:
             print("Unknown message <" + str(msg.tp) + "> for client: " + client_id)
 
