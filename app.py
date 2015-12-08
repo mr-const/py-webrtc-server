@@ -6,12 +6,10 @@ import string
 
 from aiohttp import web
 
+import settings
 from client import Client
 from stream import Stream
 from streamlist import StreamList
-
-BIND_HOST = "10.1.1.162"
-BIND_PORT = 3333
 
 log = logging.getLogger(__name__)
 
@@ -134,7 +132,7 @@ async def index(request):
     return aiohttp_jinja2.render_template('index.html', request,
                                           {'header': 'hello world',
                                            'footer': '(c) Troy Rynok LLC',
-                                           'ws_url': BIND_HOST + ':' + str(BIND_PORT)})
+                                           'ws_url': settings.BIND_HOST + ':' + str(settings.BIND_PORT)})
 
 async def init(loop):
     app = web.Application(loop=loop)
@@ -145,8 +143,8 @@ async def init(loop):
     app.router.add_route('GET', '/', index)
 
     srv = await loop.create_server(app.make_handler(),
-                                   BIND_HOST, BIND_PORT)
-    print("Server started at http://"+BIND_HOST+":"+str(BIND_PORT))
+                                   settings.BIND_HOST, settings.BIND_PORT)
+    print("Server started at http://"+settings.BIND_HOST+":"+str(settings.BIND_PORT))
     return srv
 
 
