@@ -105,6 +105,15 @@ def list_streams(request):
 
 
 @asyncio.coroutine
+def ping_client(ws):
+    if not ws.closed:
+        ws.ping()
+        print('ping sent')
+        yield from asyncio.sleep(5)
+        asyncio.Task(ping_client(ws))
+
+
+@asyncio.coroutine
 def wshandler(request):
     ws = web.WebSocketResponse()
     yield from ws.prepare(request)
@@ -113,6 +122,8 @@ def wshandler(request):
     g_clients[client_id] = Client(client_id, ws)
 
     print("new client inbound: " + client_id)
+
+    asyncio.Task(ping_client(ws))
 
     while True:
         msg = yield from ws.receive()
@@ -179,3 +190,5 @@ if __name__ == '__main__':
         loop.run_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        loop.close()
