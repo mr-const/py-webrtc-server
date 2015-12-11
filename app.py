@@ -17,10 +17,6 @@ g_clients = {}
 
 g_streams = StreamList()
 
-iceServers = [
-    "stun:104.45.22.14:3478"
-]
-
 
 def id_generator(size=12, chars=string.ascii_lowercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
@@ -36,7 +32,7 @@ def welcome_callback(websocket, envelope):
 def send_welcome(ws, client):
     welcomeMessage = {
       "id": client.id,
-      "ice_servers": iceServers
+      "ice_servers": settings.ICE_SERVERS
     }
 
     envelope = {
