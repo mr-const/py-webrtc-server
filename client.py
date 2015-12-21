@@ -1,7 +1,6 @@
 class Client(object):
-    id = ""
+    id = "undefined"
     ws = None
 
-    def __init__(self, client_id, websocket):
-        self.id = client_id
+    def __init__(self, websocket):
         self.ws = websocket

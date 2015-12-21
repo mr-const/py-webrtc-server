@@ -42,7 +42,12 @@ var PeerManager = (function () {
         socket.onmessage = onMessage;
         socket.onerror = onEvent;
         socket.onclose = onEvent;
-        socket.send(JSON.stringify({type: "ehlo"}));
+        socket.send(JSON.stringify({
+          type: "ehlo",
+          data: {
+            token: "DEADBABE"
+          }
+        }));
     };
 
 

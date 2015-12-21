@@ -1,25 +1,16 @@
 import asyncio, jinja2, aiohttp_jinja2
 import json
 import logging
-import random
-import string
 
+import aiohttp
 from aiohttp import web
 
 import settings
 from client import Client
-from stream import Stream
-from streamlist import StreamList
 
 log = logging.getLogger(__name__)
 
 g_clients = {}
-
-g_streams = StreamList()
-
-
-def id_generator(size=12, chars=string.ascii_lowercase + string.digits):
-    return ''.join(random.choice(chars) for _ in range(size))
 
 
 def welcome_callback(websocket, envelope):
@@ -29,29 +20,33 @@ def welcome_callback(websocket, envelope):
         print("Failed to send welcome packet: " + repr(ex))
 
 
-def send_welcome(ws, client):
-    welcomeMessage = {
-      "id": client.id,
-      "ice_servers": settings.ICE_SERVERS
-    }
+def on_welcome(data, client):
+    try:
+        token = data["data"]["token"]
+        client.id = token
 
-    envelope = {
-        'type': 'welcome',
-        'data': welcomeMessage
-    }
+        welcome_message = {
+          "id": client.id,
+          "ice_servers": settings.ICE_SERVERS
+        }
 
-    welcome_callback(ws, envelope)
+        envelope = {
+            'type': 'welcome',
+            'data': welcome_message
+        }
 
+        welcome_callback(client.ws, envelope)
+        print('-- ' + client.id + ' registered--')
+        on_new_client(client)
 
-def register_client(data, client):
-    name = data["data"]["name"]
-    print('-- ' + client.id + ' registered with name: ' + name + ' --')
-    g_streams.add_stream(client.id, Stream(client.id, name))
+    except KeyError:
+        print("Token not found or invalid")
+        asyncio.Task(do_close_ws(client.ws))
+        on_delete_client(client)
 
 
 def leave_client(client):
     print('-- ' + client.id + ' left --')
-    g_streams.remove_stream(client.id)
 
 
 def process_message(data, client):
@@ -73,27 +68,20 @@ def process_message(data, client):
     dst_client.ws.send_str(json_txt)
 
 
-def handle_incoming_packet(websocket, client, data):
+def handle_incoming_packet(client, data):
     packet = json.loads(data)
     if packet.get('type') is None:
         print("unknown message: " + data)
         return
 
     if packet['type'] == "ehlo":
-        send_welcome(websocket, client)
-    elif packet['type'] == "register_client":
-        register_client(packet, client)
+        on_welcome(packet, client)
     elif packet['type'] == "leave":
         leave_client(client)
     elif packet['type'] == "message":
         process_message(packet, client)
     else:
         print("unknown message: " + data)
-
-
-@asyncio.coroutine
-def list_streams(request):
-    return web.Response(body=g_streams.to_json().encode("utf-8"), content_type="application/json")
 
 
 @asyncio.coroutine
@@ -106,21 +94,37 @@ def ping_client(ws):
 
 
 @asyncio.coroutine
+def do_close_ws(ws):
+    if ws:
+        ws.close()
+
+
+@asyncio.coroutine
+def on_new_client(client):
+    aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id})
+    g_clients[client.id] = client
+    asyncio.Task(ping_client(client.ws))
+
+
+@asyncio.coroutine
+def on_delete_client(client):
+    print("Connection closed, removing client " + client.id)
+    aiohttp.delete(settings.WEBRTC_LISTENER + client.id + "/")
+    del g_clients[client.id]
+
+
+@asyncio.coroutine
 def wshandler(request):
     ws = web.WebSocketResponse()
     yield from ws.prepare(request)
 
-    client_id = id_generator(12)
-    g_clients[client_id] = Client(client_id, ws)
-
-    print("new client inbound: " + client_id)
-
-    asyncio.Task(ping_client(ws))
+    print('incoming connection initiated')
+    client = Client(ws)
 
     while True:
         msg = yield from ws.receive()
         if msg.tp == web.MsgType.text:
-            handle_incoming_packet(ws, g_clients[client_id], msg.data)
+            handle_incoming_packet(client, msg.data)
         elif msg.tp == web.MsgType.binary:
             ws.send_bytes(msg.data)
         elif msg.tp == web.MsgType.error:
@@ -130,11 +134,9 @@ def wshandler(request):
             print('received close message')
             break
         else:
-            print("Unknown message <" + str(msg.tp) + "> for client: " + client_id)
+            print("Unknown message <" + str(msg.tp) + "> for client: " + client.id)
 
-    print("Connection closed, removing client " + client_id)
-    del g_clients[client_id]
-    g_streams.remove_stream(client_id)
+    on_delete_client(client)
 
     return ws
 
@@ -153,7 +155,6 @@ def init(loop):
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('./templates/'))
     app.router.add_static('/static', './static')
     app.router.add_route('GET', '/rtc/', wshandler)
-    app.router.add_route('GET', '/streams/', list_streams)
     app.router.add_route('GET', '/', index)
 
     srv = yield from loop.create_server(app.make_handler(),
