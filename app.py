@@ -27,7 +27,7 @@ def welcome_answer(client):
     try:
         client.ws.send_str(json.dumps(envelope))
     except Exception as ex:
-        print("Failed to send welcome packet: " + repr(ex))
+        log.warn("Failed to send welcome packet: " + repr(ex))
 
 
 def on_welcome(data, client):
@@ -36,37 +36,37 @@ def on_welcome(data, client):
         client.id = token
         on_new_client(client)
     except KeyError:
-        print("Token not found or invalid")
+        log.info("Token not found or invalid")
         on_delete_client(client)
 
 
 def leave_client(client):
-    print('-- ' + client.id + ' left --')
+    log.info('-- ' + client.id + ' left --')
 
 
 def process_message(data, client):
     dst_id = data['data']['to']
     if dst_id == client.id:
-        print("-- Attempt to send message to yourself. Ignoring")
+        log.info("-- Attempt to send message to yourself. Ignoring")
         return
 
     dst_client = g_clients.get(dst_id)
     if dst_client is None:
-        print("Destination client: " + dst_id + " not found. Ignoring")
+        log.info("Destination client: " + dst_id + " not found. Ignoring")
         return
 
     # Setting from: field
     data['data']['from'] = client.id
     json_txt = json.dumps(data)
-    print("-- Sending message from: " + client.id + " to: " + dst_client.id)
-    print(json_txt)
+    log.info("-- Sending message from: " + client.id + " to: " + dst_client.id)
+    log.debug(json_txt)
     dst_client.ws.send_str(json_txt)
 
 
 def handle_incoming_packet(client, data):
     packet = json.loads(data)
     if packet.get('type') is None:
-        print("unknown message: " + data)
+        log.warn("unknown message: " + data)
         return
 
     if packet['type'] == "ehlo":
@@ -76,14 +76,14 @@ def handle_incoming_packet(client, data):
     elif packet['type'] == "message":
         process_message(packet, client)
     else:
-        print("unknown message: " + data)
+        log.warn("unknown message: " + data)
 
 
 @asyncio.coroutine
 def ping_client(ws):
     if not ws.closed:
         ws.ping()
-        print('ping sent')
+        log.debug('ping sent')
         yield from asyncio.sleep(5)
         asyncio.Task(ping_client(ws))
 
@@ -100,20 +100,21 @@ def on_new_client(client):
         g_clients[client.id] = client
         asyncio.Task(ping_client(client.ws))
         welcome_answer(client)
-        print('-- ' + client.id + ' registered--')
+        log.info('-- ' + client.id + ' registered--')
 
     else:
-        print("Not Authorized id: " + client.id)
+        log.info("Not Authorized id: " + client.id)
         on_delete_client(client)
 
     yield from data.release()
 
 
 def on_delete_client(client):
-    print("Connection closed, removing client " + client.id)
+    log.info("Connection closed, removing client " + client.id)
     asyncio.Task(do_close_ws(client.ws))
     aiohttp.delete(settings.WEBRTC_LISTENER + client.id + "/")
-    del g_clients[client.id]
+    if client.id in g_clients:
+        del g_clients[client.id]
 
 
 @asyncio.coroutine
@@ -121,7 +122,7 @@ def wshandler(request):
     ws = web.WebSocketResponse()
     yield from ws.prepare(request)
 
-    print('incoming connection initiated')
+    log.debug('incoming connection initiated')
     client = Client(ws)
 
     while True:
@@ -131,13 +132,13 @@ def wshandler(request):
         elif msg.tp == web.MsgType.binary:
             ws.send_bytes(msg.data)
         elif msg.tp == web.MsgType.error:
-            print('ws connection closed with exception %s' %
+            log.warn('ws connection closed with exception %s' %
                   ws.exception())
         elif msg.tp == web.MsgType.closed:
-            print('received close message')
+            log.info('received close message')
             break
         else:
-            print("Unknown message <" + str(msg.tp) + "> for client: " + client.id)
+            log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.id)
 
     on_delete_client(client)
 
@@ -162,7 +163,7 @@ def init(loop):
 
     srv = yield from loop.create_server(app.make_handler(),
                                    settings.BIND_HOST, settings.BIND_PORT)
-    print("Server started at http://"+settings.BIND_HOST+":"+str(settings.BIND_PORT))
+    log.info("Server started at http://"+settings.BIND_HOST+":"+str(settings.BIND_PORT))
     return srv
 
 
