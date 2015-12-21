@@ -13,9 +13,19 @@ log = logging.getLogger(__name__)
 g_clients = {}
 
 
-def welcome_callback(websocket, envelope):
+def welcome_answer(client):
+    welcome_message = {
+      "id": client.id,
+      "ice_servers": settings.ICE_SERVERS
+    }
+
+    envelope = {
+        'type': 'welcome',
+        'data': welcome_message
+    }
+
     try:
-        websocket.send_str(json.dumps(envelope))
+        client.ws.send_str(json.dumps(envelope))
     except Exception as ex:
         print("Failed to send welcome packet: " + repr(ex))
 
@@ -24,24 +34,9 @@ def on_welcome(data, client):
     try:
         token = data["data"]["token"]
         client.id = token
-
-        welcome_message = {
-          "id": client.id,
-          "ice_servers": settings.ICE_SERVERS
-        }
-
-        envelope = {
-            'type': 'welcome',
-            'data': welcome_message
-        }
-
-        welcome_callback(client.ws, envelope)
-        print('-- ' + client.id + ' registered--')
         on_new_client(client)
-
     except KeyError:
         print("Token not found or invalid")
-        asyncio.Task(do_close_ws(client.ws))
         on_delete_client(client)
 
 
@@ -93,22 +88,29 @@ def ping_client(ws):
         asyncio.Task(ping_client(ws))
 
 
-@asyncio.coroutine
 def do_close_ws(ws):
-    if ws:
+    if ws and not ws.closed:
         ws.close()
 
 
-@asyncio.coroutine
 def on_new_client(client):
-    aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id})
-    g_clients[client.id] = client
-    asyncio.Task(ping_client(client.ws))
+    data = asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id}), 5)
+    if data.response_code == 201:
+        g_clients[client.id] = client
+        asyncio.Task(ping_client(client.ws))
+        welcome_answer(client)
+        print('-- ' + client.id + ' registered--')
+
+    else:
+        print("Not Authorized id: " + client.id)
+        on_delete_client(client)
+
+    yield from data.release()
 
 
-@asyncio.coroutine
 def on_delete_client(client):
     print("Connection closed, removing client " + client.id)
+    asyncio.Task(do_close_ws(client.ws))
     aiohttp.delete(settings.WEBRTC_LISTENER + client.id + "/")
     del g_clients[client.id]
 
