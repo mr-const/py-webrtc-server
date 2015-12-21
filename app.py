@@ -88,6 +88,7 @@ def ping_client(ws):
         asyncio.Task(ping_client(ws))
 
 
+@asyncio.coroutine
 def do_close_ws(ws):
     if ws and not ws.closed:
         ws.close()
