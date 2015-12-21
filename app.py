@@ -19,25 +19,29 @@ def welcome_answer(client):
       "ice_servers": settings.ICE_SERVERS
     }
 
+    send_message('welcome', welcome_message, client)
+
+
+def send_message(message_type, payload, client):
     envelope = {
-        'type': 'welcome',
-        'data': welcome_message
+        'type': message_type,
+        'data': payload
     }
 
     try:
         client.ws.send_str(json.dumps(envelope))
     except Exception as ex:
-        log.warn("Failed to send welcome packet: " + repr(ex))
+        log.warn("Failed to send data packet: " + repr(ex))
 
 
+@asyncio.coroutine
 def on_welcome(data, client):
     try:
         token = data["data"]["token"]
         client.id = token
-        on_new_client(client)
+        yield from on_new_client(client)
     except KeyError:
-        log.info("Token not found or invalid")
-        on_delete_client(client)
+        on_delete_client(client, "Token not found or invalid")
 
 
 def leave_client(client):
@@ -63,6 +67,7 @@ def process_message(data, client):
     dst_client.ws.send_str(json_txt)
 
 
+@asyncio.coroutine
 def handle_incoming_packet(client, data):
     packet = json.loads(data)
     if packet.get('type') is None:
@@ -70,7 +75,7 @@ def handle_incoming_packet(client, data):
         return
 
     if packet['type'] == "ehlo":
-        on_welcome(packet, client)
+        yield from on_welcome(packet, client)
     elif packet['type'] == "leave":
         leave_client(client)
     elif packet['type'] == "message":
@@ -91,11 +96,17 @@ def ping_client(ws):
 @asyncio.coroutine
 def do_close_ws(ws):
     if ws and not ws.closed:
-        ws.close()
+        yield from ws.close()
 
 
+@asyncio.coroutine
 def on_new_client(client):
-    data = asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id}), 5)
+    try:
+        data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id}), 5)
+    except (aiohttp.ClientResponseError, TimeoutError):
+        on_delete_client(client, "Auth server not available for id: " + client.id)
+        return
+
     if data.response_code == 201:
         g_clients[client.id] = client
         asyncio.Task(ping_client(client.ws))
@@ -103,14 +114,15 @@ def on_new_client(client):
         log.info('-- ' + client.id + ' registered--')
 
     else:
-        log.info("Not Authorized id: " + client.id)
-        on_delete_client(client)
+        on_delete_client(client, "Not Authorized id: " + client.id)
 
     yield from data.release()
 
 
-def on_delete_client(client):
+def on_delete_client(client, reason):
     log.info("Connection closed, removing client " + client.id)
+    log.info("Reason: " + reason)
+    send_message("message", {"type": "disconnect", "reason": reason}, client)
     asyncio.Task(do_close_ws(client.ws))
     aiohttp.delete(settings.WEBRTC_LISTENER + client.id + "/")
     if client.id in g_clients:
@@ -128,7 +140,7 @@ def wshandler(request):
     while True:
         msg = yield from ws.receive()
         if msg.tp == web.MsgType.text:
-            handle_incoming_packet(client, msg.data)
+            yield from handle_incoming_packet(client, msg.data)
         elif msg.tp == web.MsgType.binary:
             ws.send_bytes(msg.data)
         elif msg.tp == web.MsgType.error:
@@ -140,7 +152,7 @@ def wshandler(request):
         else:
             log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.id)
 
-    on_delete_client(client)
+    on_delete_client(client, "good bye")
 
     return ws
 
