@@ -102,12 +102,13 @@ def do_close_ws(ws):
 @asyncio.coroutine
 def on_new_client(client):
     try:
-        data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER, data={"webrtc_id": client.id}), 5)
-    except (aiohttp.ClientResponseError, TimeoutError):
-        on_delete_client(client, "Auth server not available for id: " + client.id)
+        data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER + client.id + "/",
+                                                        data={"webrtc_session_id": client.id}), 5)
+    except (aiohttp.ClientResponseError, TimeoutError) as e:
+        on_delete_client(client, "Auth server not available for id: " + client.id + " due to: " + str(e))
         return
 
-    if data.response_code == 201:
+    if data.status == 202:
         g_clients[client.id] = client
         asyncio.Task(ping_client(client.ws))
         welcome_answer(client)
@@ -115,8 +116,6 @@ def on_new_client(client):
 
     else:
         on_delete_client(client, "Not Authorized id: " + client.id)
-
-    yield from data.release()
 
 
 def on_delete_client(client, reason):
