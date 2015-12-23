@@ -147,7 +147,7 @@ def on_delete_client(client, reason):
 
     log.info("Connection closed, removing client " + client.id)
     log.info("Reason: " + reason)
-    send_message("message", {"type": "disconnect", "reason": reason}, client)
+    send_message("error", {"type": "disconnect", "reason": reason}, client)
     asyncio.Task(do_close_ws(client.ws))
     aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers)
     if client.id in g_clients:
