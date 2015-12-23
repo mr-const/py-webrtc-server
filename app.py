@@ -117,15 +117,14 @@ def on_new_client(client):
 
     try:
         data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER,
-                                                        data={"webrtc_session_id": client.token},
                                                         headers=headers),
                                            5)
     except (aiohttp.ClientResponseError, TimeoutError) as e:
         on_delete_client(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
         return
 
+    response = yield from data.json()
     if data.status == 202:
-        response = yield from data.json()
         client.id = response['client_id']
         g_clients[client.id] = client
         asyncio.Task(ping_client(client.ws))
@@ -133,6 +132,7 @@ def on_new_client(client):
         log.info('-- ' + client.id + ' registered--')
 
     else:
+        log.error('Auth result: ' + str(response))
         yield from data.release()
         on_delete_client(client, "Not Authorized token: " + client.token)
 
