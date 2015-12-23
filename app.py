@@ -38,7 +38,15 @@ def send_message(message_type, payload, client):
 def on_welcome(data, client):
     try:
         token = data["data"]["token"]
-        client.id = token
+        subtok = token.split(' ')
+        # Assuming we got string Bearer <TOKEN_UID> then it's human
+        if len(subtok) > 1:
+            client.type = 'human'
+        else:
+            client.type = 'robot'
+
+        client.token = token
+
         yield from on_new_client(client)
     except KeyError:
         on_delete_client(client, "Token not found or invalid")
@@ -101,29 +109,46 @@ def do_close_ws(ws):
 
 @asyncio.coroutine
 def on_new_client(client):
+    headers = {}
+    if client.type == 'human':
+        headers["Authorization"] = client.token
+    elif client.type == 'robot':
+        headers["X-Robot-Key"] = client.token
+
     try:
-        data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER + client.id + "/",
-                                                        data={"webrtc_session_id": client.id}), 5)
+        data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER,
+                                                        data={"webrtc_session_id": client.token},
+                                                        headers=headers),
+                                           5)
     except (aiohttp.ClientResponseError, TimeoutError) as e:
-        on_delete_client(client, "Auth server not available for id: " + client.id + " due to: " + str(e))
+        on_delete_client(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
         return
 
     if data.status == 202:
+        response = yield from data.json()
+        client.id = response['client_id']
         g_clients[client.id] = client
         asyncio.Task(ping_client(client.ws))
         welcome_answer(client)
         log.info('-- ' + client.id + ' registered--')
 
     else:
-        on_delete_client(client, "Not Authorized id: " + client.id)
+        yield from data.release()
+        on_delete_client(client, "Not Authorized token: " + client.token)
 
 
 def on_delete_client(client, reason):
+    headers = {}
+    if client.type == 'human':
+        headers["Authorization"] = client.token
+    elif client.type == 'robot':
+        headers["X-Robot-Key"] = client.token
+
     log.info("Connection closed, removing client " + client.id)
     log.info("Reason: " + reason)
     send_message("message", {"type": "disconnect", "reason": reason}, client)
     asyncio.Task(do_close_ws(client.ws))
-    aiohttp.delete(settings.WEBRTC_LISTENER + client.id + "/")
+    aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers)
     if client.id in g_clients:
         del g_clients[client.id]
 
