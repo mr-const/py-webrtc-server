@@ -1,5 +1,6 @@
 class Client(object):
-    id = "undefined"
+    id = "noid"
+    session_id = "undefined"
     token = ""
     ws = None
     type = 'human'

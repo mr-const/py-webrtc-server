@@ -10,12 +10,12 @@ from client import Client
 
 log = logging.getLogger(__name__)
 
-g_clients = {}
+g_sessions = {}
 
 
 def welcome_answer(client):
     welcome_message = {
-      "id": client.id,
+      "id": client.session_id,
       "ice_servers": settings.ICE_SERVERS
     }
 
@@ -53,24 +53,24 @@ def on_welcome(data, client):
 
 
 def leave_client(client):
-    log.info('-- ' + client.id + ' left --')
+    log.info('-- ' + client.session_id + ' left --')
 
 
 def process_message(data, client):
     dst_id = data['data']['to']
-    if dst_id == client.id:
+    if dst_id == client.session_id:
         log.info("-- Attempt to send message to yourself. Ignoring")
         return
 
-    dst_client = g_clients.get(dst_id)
+    dst_client = g_sessions.get(dst_id)
     if dst_client is None:
         log.info("Destination client: " + dst_id + " not found. Ignoring")
         return
 
     # Setting from: field
-    data['data']['from'] = client.id
+    data['data']['from'] = client.session_id
     json_txt = json.dumps(data)
-    log.info("-- Sending message from: " + client.id + " to: " + dst_client.id)
+    log.info("-- Sending message from: " + client.session_id + " to: " + dst_client.session_id)
     log.debug(json_txt)
     dst_client.ws.send_str(json_txt)
 
@@ -126,10 +126,11 @@ def on_new_client(client):
     if data.status == 202:
         response = yield from data.json()
         client.id = response['client_id']
-        g_clients[client.id] = client
+        client.session_id = response['webrtc_session_id']
+        g_sessions[client.session_id] = client
         asyncio.Task(ping_client(client.ws))
         welcome_answer(client)
-        log.info('-- ' + client.id + ' registered--')
+        log.info('-- ' + client.session_id + ' registered--')
 
     else:
         response = yield from data.text()
@@ -145,13 +146,13 @@ def on_delete_client(client, reason):
     elif client.type == 'robot':
         headers["X-Robot-Key"] = client.token
 
-    log.info("Connection closed, removing client " + client.id)
+    log.info("Connection closed, removing client " + client.session_id)
     log.info("Reason: " + reason)
     send_message("error", {"type": "disconnect", "reason": reason}, client)
     asyncio.Task(do_close_ws(client.ws))
     aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers)
-    if client.id in g_clients:
-        del g_clients[client.id]
+    if client.session_id in g_sessions:
+        del g_sessions[client.session_id]
 
 
 @asyncio.coroutine
@@ -175,7 +176,7 @@ def wshandler(request):
             log.info('received close message')
             break
         else:
-            log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.id)
+            log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.session_id)
 
     on_delete_client(client, "good bye")
 
