@@ -69,6 +69,7 @@ def process_message(data, client):
 
     # Setting from: field
     data['data']['from'] = client.session_id
+    data['data']['sender_id'] = client.id
     json_txt = json.dumps(data)
     log.info("-- Sending message from: " + client.session_id + " to: " + dst_client.session_id)
     log.debug(json_txt)
