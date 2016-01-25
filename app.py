@@ -12,6 +12,10 @@ log = logging.getLogger(__name__)
 
 g_sessions = {}
 
+ERR_GENERAL = 400
+ERR_NOT_FOUND = 404
+ERR_UNKNOWN_MESSAGE = 1001
+
 
 def welcome_answer(client):
     welcome_message = {
@@ -56,11 +60,12 @@ def leave_client(client):
     log.info('-- ' + client.session_id + ' left --')
 
 
-def return_error(client, message):
+def return_error(client, message, code):
     log.error("error:" + message)
     err = {"type": "error",
            "data": {
-               "reason": message
+               "reason": message,
+               "code": code
            }}
     client.ws.send_str(json.dumps(err))
 
@@ -68,12 +73,12 @@ def return_error(client, message):
 def process_message(data, client):
     dst_id = data['data']['to']
     if dst_id == client.session_id:
-        return_error(client, "Attempt to send message to yourself. Ignored")
+        return_error(client, "Attempt to send message to yourself. Ignored", ERR_GENERAL)
         return
 
     dst_client = g_sessions.get(dst_id)
     if dst_client is None:
-        return_error(client, "Destination client: " + dst_id + " not found. Ignoring")
+        return_error(client, "Destination client: " + dst_id + " not found. Ignoring", ERR_NOT_FOUND)
         return
 
     # Setting from: field
@@ -89,7 +94,7 @@ def process_message(data, client):
 def handle_incoming_packet(client, data):
     packet = json.loads(data)
     if packet.get('type') is None:
-        return_error(client, "unknown message: " + data)
+        return_error(client, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
         return
 
     if packet['type'] == "ehlo":
@@ -99,7 +104,7 @@ def handle_incoming_packet(client, data):
     elif packet['type'] == "message":
         process_message(packet, client)
     else:
-        return_error(client, "unknown message: " + data)
+        return_error(client, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
 
 
 @asyncio.coroutine
