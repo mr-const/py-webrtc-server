@@ -58,7 +58,7 @@ def leave_client(client):
 
 def return_error(client, message):
     log.error("error:" + message)
-    err = {"error": message}
+    err = {"type": "error", "reason": message}
     client.ws.send_str(json.dumps(err))
 
 
