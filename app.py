@@ -53,7 +53,7 @@ def on_welcome(data, client):
 
         yield from on_new_client(client)
     except KeyError:
-        on_delete_client(client, "Token not found or invalid")
+        request_close(client, "Token not found or invalid")
 
 
 def leave_client(client):
@@ -135,7 +135,7 @@ def on_new_client(client):
                                                         headers=headers),
                                            5)
     except (aiohttp.ClientResponseError, TimeoutError) as e:
-        on_delete_client(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
+        request_close(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
         return
 
     if data.status == 202:
@@ -151,19 +151,23 @@ def on_new_client(client):
         response = yield from data.text()
         log.error('Auth result: ' + str(response))
         yield from data.release()
-        on_delete_client(client, "Not Authorized token: " + client.token)
+        request_close(client, "Not Authorized token: " + client.token)
 
 
-def on_delete_client(client, reason):
+def request_close(client, reason):
+    log.info("Close requested for " + str(client.session_id) + " Reason: " + reason)
+    asyncio.Task(do_close_ws(client.ws))
+
+
+def on_delete_client(client):
     headers = {}
     if client.type == 'human':
         headers["Authorization"] = client.token
     elif client.type == 'robot':
         headers["X-Robot-Key"] = client.token
 
-    log.info("Connection closed, removing client " + client.session_id)
-    log.info("Reason: " + reason)
-    asyncio.Task(do_close_ws(client.ws))
+    log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
+
     asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
     if client.session_id in g_sessions:
         del g_sessions[client.session_id]
@@ -192,7 +196,7 @@ def wshandler(request):
         else:
             log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.session_id)
 
-    on_delete_client(client, "good bye")
+    on_delete_client(client)
 
     return ws
 
