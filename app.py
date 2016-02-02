@@ -159,6 +159,7 @@ def request_close(client, reason):
     asyncio.Task(do_close_ws(client.ws))
 
 
+@asyncio.coroutine
 def on_delete_client(client):
     headers = {}
     if client.type == 'human':
@@ -168,7 +169,7 @@ def on_delete_client(client):
 
     log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
 
-    asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
+    yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
     if client.session_id in g_sessions:
         del g_sessions[client.session_id]
 
@@ -196,7 +197,7 @@ def wshandler(request):
         else:
             log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.session_id)
 
-    on_delete_client(client)
+    yield from on_delete_client(client)
 
     return ws
 
