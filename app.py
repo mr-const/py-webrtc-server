@@ -176,7 +176,7 @@ def on_delete_client(client):
 
 @asyncio.coroutine
 def wshandler(request):
-    ws = web.WebSocketResponse()
+    ws = web.WebSocketResponse(protocols=('base46',))
     yield from ws.prepare(request)
 
     log.debug('incoming connection initiated')
