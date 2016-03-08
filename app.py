@@ -92,8 +92,7 @@ def process_message(data, client):
 
 @asyncio.coroutine
 def handle_incoming_packet(client, data):
-    # weird hack, because some browsers sometimes are doing double-json conversion of a payload
-    packet = json.loads(json.loads(data))
+    packet = json.loads(data)
     if packet.get('type') is None:
         return_error(client, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
         return
