@@ -157,6 +157,7 @@ def on_new_client(client):
 @asyncio.coroutine
 def request_close(client, reason):
     log.info("Close requested for " + str(client.session_id) + " Reason: " + reason)
+    return_error(client, reason, ERR_GENERAL)
     yield from do_close_ws(client.ws)
 
 
