@@ -55,7 +55,7 @@ def on_welcome(data, client):
 
         yield from on_new_client(client)
     except KeyError:
-        request_close(client, "Token not found or invalid")
+        yield from request_close(client, "Token not found or invalid")
 
 
 def leave_client(client):
@@ -136,8 +136,8 @@ def on_new_client(client):
         data = yield from asyncio.wait_for(aiohttp.post(settings.WEBRTC_LISTENER,
                                                         headers=headers),
                                            5)
-    except (aiohttp.ClientResponseError, TimeoutError) as e:
-        request_close(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
+    except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
+        yield from request_close(client, "Auth server not available for token: " + client.token + " due to: " + str(e))
         return
 
     if data.status == 202:
@@ -153,12 +153,14 @@ def on_new_client(client):
         response = yield from data.text()
         log.error('Auth result: ' + str(response))
         yield from data.release()
-        request_close(client, "Not Authorized token: " + client.token)
+        yield from request_close(client, "Not Authorized token: " + client.token)
 
 
+@asyncio.coroutine
 def request_close(client, reason):
     log.info("Close requested for " + str(client.session_id) + " Reason: " + reason)
-    asyncio.Task(do_close_ws(client.ws))
+    return_error(client, reason, ERR_GENERAL)
+    yield from do_close_ws(client.ws)
 
 
 @asyncio.coroutine
