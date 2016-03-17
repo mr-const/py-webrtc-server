@@ -41,15 +41,17 @@ def send_message(message_type, payload, client):
 @asyncio.coroutine
 def on_welcome(data, client):
     try:
+        # We use JWT tokens for human users, so if we extract something that can be split to 3 pieces - probably it's
+        # human token
         token = data["data"]["token"]
-        subtok = token.split(' ')
-        # Assuming we got string Bearer <TOKEN_UID> then it's human
-        if len(subtok) > 1:
+        subtok = token.split('.')
+        # Assuming we got string aaa.bbb.ccc (JWT) then it's human
+        if len(subtok) == 3:
             client.type = 'human'
         else:
             client.type = 'robot'
 
-        client.token = token
+        client.token = 'JWT ' + token
 
         yield from on_new_client(client)
     except KeyError:
