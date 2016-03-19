@@ -48,10 +48,10 @@ def on_welcome(data, client):
         # Assuming we got string aaa.bbb.ccc (JWT) then it's human
         if len(subtok) == 3:
             client.type = 'human'
+            client.token = 'JWT ' + token
         else:
             client.type = 'robot'
-
-        client.token = 'JWT ' + token
+            client.token = token
 
         yield from on_new_client(client)
     except KeyError:
