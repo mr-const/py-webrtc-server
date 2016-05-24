@@ -1,6 +1,7 @@
 import asyncio, jinja2, aiohttp_jinja2
 import json
 import logging
+import time
 
 import aiohttp
 from aiohttp import web
@@ -83,6 +84,9 @@ def process_message(data, client):
         return_error(client, "Destination client: " + dst_id + " not found. Ignoring", ERR_NOT_FOUND)
         return
 
+    if not has_access(client, dst_client):
+        return_error(client, "Permission denied to access ID: {}".format(dst_id), ERR_GENERAL)
+
     # Setting from: field
     data['data']['from'] = client.session_id
     data['data']['sender_id'] = client.id
@@ -122,6 +126,26 @@ def ping_client(ws):
 def do_close_ws(ws):
     if ws and not ws.closed:
         yield from ws.close()
+
+
+def has_access(user, target):
+    headers = {'Authorization': user.token}
+    try:
+        data = yield from asyncio.wait_for(aiohttp.post(settings.ACCESS_API,
+                                                        headers=headers), 5)
+    except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
+        return False
+
+    if data.status == 200:
+        acc_token = yield from data.json()
+        now = int(time.time())
+        return int(acc_token.exp) >= now >= int(acc_token.nbf)
+
+    else:
+        response = yield from data.text()
+        log.error('Access denied with result: ' + str(response))
+        yield from data.release()
+        return False
 
 
 @asyncio.coroutine
