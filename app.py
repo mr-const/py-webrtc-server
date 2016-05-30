@@ -127,15 +127,17 @@ def handle_incoming_packet(client, data):
         return_error(client, 0, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
 
 
+@asyncio.coroutine
 def ping_client(client):
     if not client.ws.closed:
         if client.ws._writer.writer._conn_lost:
             log.error('connection lost to: ' + client.session_id)
-            on_delete_client(client.ws)
+            yield from on_delete_client(client.ws)
+            return
 
         client.ws.ping()
-        log.debug('ping sent')
-        loop.call_later(5, ping_client, client)
+        log.debug('ping sent to: ' + client.session_id)
+        loop.call_later(5, asyncio.ensure_future, ping_client(client))
 
 
 @asyncio.coroutine
@@ -185,7 +187,7 @@ def on_new_client(client):
         client.id = response['client_id']
         client.session_id = response['webrtc_session_id']
         g_sessions[client.session_id] = client
-        ping_client(client)
+        yield from ping_client(client)
         welcome_answer(client)
         log.info('-- ' + client.session_id + ' registered--')
 
