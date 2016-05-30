@@ -215,7 +215,9 @@ def on_delete_client(client):
 
     log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
 
-    yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
+    response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
+    yield from response.release()
+    
     if client.session_id in g_sessions:
         del g_sessions[client.session_id]
 
