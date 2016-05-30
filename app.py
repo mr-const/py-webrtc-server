@@ -137,7 +137,7 @@ def ping_client(client):
 
         client.ws.ping()
         log.debug('ping sent to: ' + client.session_id)
-        loop.call_later(5, asyncio.ensure_future, ping_client(client))
+        loop.call_later(5, asyncio.async, ping_client(client))
 
 
 @asyncio.coroutine
@@ -217,7 +217,7 @@ def on_delete_client(client):
 
     response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
     yield from response.release()
-    
+
     if client.session_id in g_sessions:
         del g_sessions[client.session_id]
 
@@ -245,7 +245,7 @@ def wshandler(request):
         else:
             log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.session_id)
 
-    loop.call_later(5, asyncio.ensure_future, on_delete_client(client))
+    loop.call_later(5, asyncio.async, on_delete_client(client))
 
     return ws
 
