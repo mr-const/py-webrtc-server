@@ -4,6 +4,7 @@ import logging
 import time
 
 import aiohttp
+import sys
 from aiohttp import web
 
 import settings
@@ -75,8 +76,19 @@ def return_error(client, packet_id, message, code):
 
 
 def process_message(data, client):
-    dst_id = data['data']['to']
-    packet_id = data['id']
+    packet = data.get('data')
+    if not packet:
+        log.error("Invalid packet data: " + packet)
+        return_error(client, 0, "Invalid packet data: " + packet, ERR_GENERAL)
+        return
+
+    dst_id = packet.get('to')
+    packet_id = data.get('id')
+
+    if dst_id is None:
+        return_error(client, packet_id, "Unknown packet destination id", ERR_GENERAL)
+        return
+
     if dst_id == client.session_id:
         return_error(client, packet_id, "Attempt to send message to yourself. Ignored", ERR_GENERAL)
         return
@@ -115,11 +127,15 @@ def handle_incoming_packet(client, data):
         return_error(client, 0, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
 
 
-def ping_client(ws):
-    if not ws.closed:
-        ws.ping()
+def ping_client(client):
+    if not client.ws.closed:
+        if client.ws._writer.writer._conn_lost:
+            log.error('connection lost to: ' + client.session_id)
+            on_delete_client(client.ws)
+
+        client.ws.ping()
         log.debug('ping sent')
-        loop.call_later(5, ping_client, ws)
+        loop.call_later(5, ping_client, client)
 
 
 @asyncio.coroutine
@@ -169,7 +185,7 @@ def on_new_client(client):
         client.id = response['client_id']
         client.session_id = response['webrtc_session_id']
         g_sessions[client.session_id] = client
-        ping_client(client.ws)
+        ping_client(client)
         welcome_answer(client)
         log.info('-- ' + client.session_id + ' registered--')
 
@@ -258,7 +274,7 @@ if __name__ == '__main__':
                                   "[%(module)s:%(lineno)d] %(message)s")
     # setup console logging
     log.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
+    ch = logging.StreamHandler(stream=sys.stdout)
     ch.setLevel(logging.DEBUG)
 
     ch.setFormatter(formatter)
