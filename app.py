@@ -63,9 +63,10 @@ def leave_client(client):
     log.info('-- ' + client.session_id + ' left --')
 
 
-def return_error(client, message, code):
+def return_error(client, packet_id, message, code):
     log.error("error:" + message)
     err = {"type": "error",
+           "id": packet_id,
            "data": {
                "reason": message,
                "code": code
@@ -75,17 +76,18 @@ def return_error(client, message, code):
 
 def process_message(data, client):
     dst_id = data['data']['to']
+    packet_id = data['id']
     if dst_id == client.session_id:
-        return_error(client, "Attempt to send message to yourself. Ignored", ERR_GENERAL)
+        return_error(client, packet_id, "Attempt to send message to yourself. Ignored", ERR_GENERAL)
         return
 
     dst_client = g_sessions.get(dst_id)
     if dst_client is None:
-        return_error(client, "Destination client: " + dst_id + " not found. Ignoring", ERR_NOT_FOUND)
+        return_error(client, packet_id, "Destination client: " + dst_id + " not found. Ignoring", ERR_NOT_FOUND)
         return
 
     if not has_access(client, dst_client):
-        return_error(client, "Permission denied to access ID: {}".format(dst_id), ERR_GENERAL)
+        return_error(client, packet_id, "Permission denied to access ID: {}".format(dst_id), ERR_GENERAL)
 
     # Setting from: field
     data['data']['from'] = client.session_id
@@ -100,7 +102,7 @@ def process_message(data, client):
 def handle_incoming_packet(client, data):
     packet = json.loads(data)
     if packet.get('type') is None:
-        return_error(client, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
+        return_error(client, 0, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
         return
 
     if packet['type'] == "ehlo":
@@ -110,16 +112,14 @@ def handle_incoming_packet(client, data):
     elif packet['type'] == "message":
         process_message(packet, client)
     else:
-        return_error(client, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
+        return_error(client, 0, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
 
 
-@asyncio.coroutine
 def ping_client(ws):
     if not ws.closed:
         ws.ping()
         log.debug('ping sent')
-        yield from asyncio.sleep(5)
-        asyncio.Task(ping_client(ws))
+        loop.call_later(5, ping_client, ws)
 
 
 @asyncio.coroutine
@@ -169,7 +169,7 @@ def on_new_client(client):
         client.id = response['client_id']
         client.session_id = response['webrtc_session_id']
         g_sessions[client.session_id] = client
-        asyncio.Task(ping_client(client.ws))
+        ping_client(client.ws)
         welcome_answer(client)
         log.info('-- ' + client.session_id + ' registered--')
 
@@ -183,7 +183,7 @@ def on_new_client(client):
 @asyncio.coroutine
 def request_close(client, reason):
     log.info("Close requested for " + str(client.session_id) + " Reason: " + reason)
-    return_error(client, reason, ERR_GENERAL)
+    return_error(client, 0, reason, ERR_GENERAL)
     yield from do_close_ws(client.ws)
 
 
