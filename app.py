@@ -243,7 +243,7 @@ def wshandler(request):
         else:
             log.warn("Unknown message <" + str(msg.tp) + "> for client: " + client.session_id)
 
-    yield from on_delete_client(client)
+    loop.call_later(5, asyncio.ensure_future, on_delete_client(client))
 
     return ws
 
