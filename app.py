@@ -75,6 +75,7 @@ def return_error(client, packet_id, message, code):
     client.ws.send_str(json.dumps(err))
 
 
+@asyncio.coroutine
 def process_message(data, client):
     packet = data.get('data')
     if not packet:
@@ -98,8 +99,10 @@ def process_message(data, client):
         return_error(client, packet_id, "Destination client: " + dst_id + " not found. Ignoring", ERR_NOT_FOUND)
         return
 
-    if not has_access(client, dst_client):
+    access = yield from has_access(client, dst_client)
+    if not access:
         return_error(client, packet_id, "Permission denied to access ID: {}".format(dst_id), ERR_GENERAL)
+        return
 
     # Setting from: field
     data['data']['from'] = client.session_id
@@ -122,7 +125,7 @@ def handle_incoming_packet(client, data):
     elif packet['type'] == "leave":
         leave_client(client)
     elif packet['type'] == "message":
-        process_message(packet, client)
+        yield from process_message(packet, client)
     else:
         return_error(client, 0, "unknown message: " + data, ERR_UNKNOWN_MESSAGE)
 
@@ -146,10 +149,15 @@ def do_close_ws(ws):
         yield from ws.close()
 
 
-def has_access(user, target):
-    headers = {'Authorization': user.token}
+@asyncio.coroutine
+def has_access(client, target):
+    # check only Human users for access
+    if client.type == 'robot':
+        return True
+
+    headers = {'Authorization': client.token}
     try:
-        data = yield from asyncio.wait_for(aiohttp.post(settings.ACCESS_API,
+        data = yield from asyncio.wait_for(aiohttp.post(settings.ACCESS_API + target.id + '/',
                                                         headers=headers), 5)
     except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
         return False
