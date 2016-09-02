@@ -21,8 +21,8 @@ ERR_UNKNOWN_MESSAGE = 1001
 
 def welcome_answer(client):
     welcome_message = {
-      "id": client.session_id,
-      "ice_servers": settings.ICE_SERVERS
+        "id": client.session_id,
+        "ice_servers": settings.ICE_SERVERS
     }
 
     send_message('welcome', welcome_message, client)
@@ -157,8 +157,8 @@ def has_access(client, target):
 
     headers = {'Authorization': client.token}
     try:
-        data = yield from asyncio.wait_for(aiohttp.post(settings.ACCESS_API + target.id + '/',
-                                                        headers=headers), 5)
+        data = yield from asyncio.wait_for(aiohttp.get(settings.ACCESS_API + target.id + '/',
+                                                       headers=headers), 5)
     except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
         log.error('Access denied due to failed API call: ' + str(repr(e)))
         return False
@@ -248,7 +248,7 @@ def wshandler(request):
             ws.send_bytes(msg.data)
         elif msg.tp == web.MsgType.error:
             log.warn('ws connection closed with exception %s' %
-                  ws.exception())
+                     ws.exception())
         elif msg.tp == web.MsgType.closed:
             log.info('received close message')
             break
@@ -277,8 +277,8 @@ def init(loop):
     app.router.add_route('GET', '/', index)
 
     srv = yield from loop.create_server(app.make_handler(),
-                                   settings.BIND_HOST, settings.BIND_PORT)
-    log.info("Server started at http://"+settings.BIND_HOST+":"+str(settings.BIND_PORT))
+                                        settings.BIND_HOST, settings.BIND_PORT)
+    log.info("Server started at http://" + settings.BIND_HOST + ":" + str(settings.BIND_PORT))
     return srv
 
 
