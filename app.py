@@ -167,7 +167,7 @@ def has_access(client, target):
         acc_token = yield from data.json()
         log.info('Received access grant with token: ' + str(repr(acc_token)))
         now = int(time.time())
-        return int(acc_token.exp) >= now >= int(acc_token.nbf)
+        return int(acc_token['exp']) >= now >= int(acc_token['nbf'])
 
     else:
         response = yield from data.text()
@@ -218,15 +218,18 @@ def request_close(client, reason):
 @asyncio.coroutine
 def on_delete_client(client):
     headers = {}
-    if client.type == 'human':
-        headers["Authorization"] = client.token
-    elif client.type == 'robot':
-        headers["X-Robot-Key"] = client.token
+    if hasattr(client, 'type'):
+        if client.type == 'human':
+            headers["Authorization"] = client.token
+        elif client.type == 'robot':
+            headers["X-Robot-Key"] = client.token
 
-    log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
+        log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
 
-    response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
-    yield from response.release()
+        response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
+        yield from response.release()
+    else:
+        log.info("Connection closed for " + client.session_id + ". Type unknown, simply removing from sessions")
 
     if client.session_id in g_sessions:
         del g_sessions[client.session_id]
