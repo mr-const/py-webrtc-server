@@ -160,10 +160,12 @@ def has_access(client, target):
         data = yield from asyncio.wait_for(aiohttp.post(settings.ACCESS_API + target.id + '/',
                                                         headers=headers), 5)
     except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
+        log.error('Access denied due to failed API call: ' + str(repr(e)))
         return False
 
     if data.status == 200:
         acc_token = yield from data.json()
+        log.info('Received access grant with token: ' + str(repr(acc_token)))
         now = int(time.time())
         return int(acc_token.exp) >= now >= int(acc_token.nbf)
 
