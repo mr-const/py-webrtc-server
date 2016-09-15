@@ -157,7 +157,7 @@ def has_access(client, target):
 
     headers = {'Authorization': client.token}
     try:
-        data = yield from asyncio.wait_for(aiohttp.get(settings.ACCESS_API + target.id + '/',
+        data = yield from asyncio.wait_for(aiohttp.get(settings.ACCESS_API.format(target.id),
                                                        headers=headers), 5)
     except (aiohttp.ClientResponseError, aiohttp.errors.ClientOSError, TimeoutError) as e:
         log.error('Access denied due to failed API call: ' + str(repr(e)))
