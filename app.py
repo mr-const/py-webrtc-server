@@ -72,7 +72,8 @@ def return_error(client, packet_id, message, code):
                "reason": message,
                "code": code
            }}
-    client.ws.send_str(json.dumps(err))
+    if not client.ws.closed:
+        client.ws.send_str(json.dumps(err))
 
 
 @asyncio.coroutine
@@ -108,9 +109,12 @@ def process_message(data, client):
     data['data']['from'] = client.session_id
     data['data']['sender_id'] = client.id
     json_txt = json.dumps(data)
-    log.info("-- Sending message from: " + client.session_id + " to: " + dst_client.session_id)
-    log.debug(json_txt)
-    dst_client.ws.send_str(json_txt)
+    if not dst_client.ws.closed:
+        log.info("-- Sending message from: " + client.session_id + " to: " + dst_client.session_id)
+        log.debug(json_txt)
+        dst_client.ws.send_str(json_txt)
+    else:
+        log.warn("-- client socket is closed: " + client.session_id)
 
 
 @asyncio.coroutine
