@@ -135,7 +135,7 @@ def ping_client(client):
     if not client.ws.closed:
         if client.ws._writer.writer._conn_lost:
             log.error('connection lost to: ' + client.session_id)
-            yield from on_delete_client(client.ws)
+            yield from on_delete_client(client)
             return
 
         client.ws.ping()
