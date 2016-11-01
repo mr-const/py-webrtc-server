@@ -230,7 +230,8 @@ def on_delete_client(client):
 
         log.info("Connection closed for " + client.session_id + ". Notifying Auth server and deleting from active")
 
-        response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers), 5)
+        response = yield from asyncio.wait_for(aiohttp.delete(settings.WEBRTC_LISTENER, headers=headers,
+                                                              data={'webrtc_session_id': client.session_id}), 5)
         yield from response.release()
     else:
         log.info("Connection closed for " + str(repr(client)) + ". Type unknown, simply removing from sessions")
@@ -244,7 +245,7 @@ def wshandler(request):
     ws = web.WebSocketResponse(protocols=('base46',))
     yield from ws.prepare(request)
 
-    log.debug('incoming connection initiated')
+    log.info('incoming connection initiated')
     client = Client(ws)
 
     while True:
@@ -294,9 +295,9 @@ if __name__ == '__main__':
     formatter = logging.Formatter("%(asctime)s %(levelname)s " +
                                   "[%(module)s:%(lineno)d] %(message)s")
     # setup console logging
-    log.setLevel(logging.DEBUG)
+    log.setLevel(logging.INFO)
     ch = logging.StreamHandler(stream=sys.stdout)
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
 
     ch.setFormatter(formatter)
     log.addHandler(ch)
